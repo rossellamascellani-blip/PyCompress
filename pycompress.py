@@ -3,6 +3,9 @@ import os
 import sys
 
 def pycompress(target_folder, main_file):
+    # Converti in percorsi assoluti
+    target_folder = os.path.abspath(target_folder)
+    
     folder_name = os.path.basename(os.path.normpath(target_folder))
     zip_name = f"{folder_name}.pycomp"
     runner_name = f"{folder_name}.py"
@@ -25,7 +28,9 @@ import tempfile
 import platform
 import re
 
-zip_file = "{zip_name}"
+# Percorsi assoluti basati sulla posizione dello script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+zip_file = os.path.join(SCRIPT_DIR, "{zip_name}")
 main_script = "{main_file}"
 
 def parse_python_version(req_file):
@@ -91,6 +96,7 @@ def save_changes_back(extract_dir):
                 file_path = os.path.join(root, file)
                 arcname = os.path.relpath(file_path, extract_dir)
                 zipf.write(file_path, arcname)
+    # Usa os.replace invece di shutil.move per essere atomico
     os.replace(temp_zip, zip_file)
 
 def install_deps(extract_dir):
@@ -99,11 +105,26 @@ def install_deps(extract_dir):
     if not os.path.exists(req_file):
         return
     
+    # Filtra le righe pyv[...] dal requirements.txt
+    temp_req = os.path.join(extract_dir, "requirements_pip.txt")
+    with open(req_file, 'r') as f_in:
+        with open(temp_req, 'w') as f_out:
+            for line in f_in:
+                # Salta righe pyv[...], vuote o commenti
+                stripped = line.strip()
+                if stripped and not stripped.startswith('#') and not re.match(r'pyv\\[', stripped):
+                    f_out.write(line)
+    
+    # Controlla se ci sono pacchetti da installare
+    if os.path.getsize(temp_req) == 0:
+        os.remove(temp_req)
+        return
+    
     print("[*] Installazione dipendenze...")
     print("=" * 60)
     
     # Usa --user per installare senza permessi root se necessario
-    cmd = [sys.executable, "-m", "pip", "install", "-r", req_file]
+    cmd = [sys.executable, "-m", "pip", "install", "-r", temp_req]
     
     # Su Linux potrebbe servire --break-system-packages
     if platform.system() != "Windows":
@@ -116,10 +137,18 @@ def install_deps(extract_dir):
     except subprocess.CalledProcessError:
         print("=" * 60)
         print("[!] ATTENZIONE: Alcune dipendenze potrebbero non essere installate")
+    finally:
+        # Rimuovi file temporaneo
+        if os.path.exists(temp_req):
+            os.remove(temp_req)
 
 def main():
+    print(f"[*] Script directory: {SCRIPT_DIR}")
+    print(f"[*] Zip file path: {zip_file}")
+    
     if not os.path.exists(zip_file):
-        print(f"[!] Errore: {{zip_file}} non trovato")
+        print(f"[!] Errore: {zip_file} non trovato")
+        print(f"[!] Working directory corrente: {os.getcwd()}")
         sys.exit(1)
     
     extract_dir = tempfile.mkdtemp(prefix="pycomp_")
