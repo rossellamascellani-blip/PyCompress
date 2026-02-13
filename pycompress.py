@@ -143,12 +143,12 @@ def install_deps(extract_dir):
             os.remove(temp_req)
 
 def main():
-    print(f"[*] Script directory: {SCRIPT_DIR}")
-    print(f"[*] Zip file path: {zip_file}")
+    print(f"[*] Script directory: {{SCRIPT_DIR}}")
+    print(f"[*] Zip file path: {{zip_file}}")
     
     if not os.path.exists(zip_file):
-        print(f"[!] Errore: {zip_file} non trovato")
-        print(f"[!] Working directory corrente: {os.getcwd()}")
+        print(f"[!] Errore: {{zip_file}} non trovato")
+        print(f"[!] Working directory corrente: {{os.getcwd()}}")
         sys.exit(1)
     
     extract_dir = tempfile.mkdtemp(prefix="pycomp_")
